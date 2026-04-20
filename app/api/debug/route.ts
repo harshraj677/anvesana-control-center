@@ -11,14 +11,18 @@ export async function GET() {
   let pass = "";
   let ref = "";
 
+  let passLen = 0;
+  let hostInUrl = "";
   try {
     const parsed = new URL(rawUrl);
     pass = decodeURIComponent(parsed.password);
+    passLen = pass.length;
+    hostInUrl = parsed.hostname;
     // Extract project ref from hostname: db.<ref>.supabase.co
     const hostParts = parsed.hostname.split(".");
     ref = hostParts[1] ?? "";
   } catch {
-    return NextResponse.json({ error: "Cannot parse DATABASE_URL", rawUrl });
+    return NextResponse.json({ error: "Cannot parse DATABASE_URL", rawUrlLen: rawUrl.length });
   }
 
   // 1. Check if Supabase project is reachable via REST
@@ -63,5 +67,5 @@ export async function GET() {
     }
   }
 
-  return NextResponse.json({ restStatus, ref: ref || "NOT FOUND", results });
+  return NextResponse.json({ restStatus, ref: ref || "NOT FOUND", passLen, hostInUrl, results });
 }
