@@ -1,9 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getTokenFromRequest, verifyToken } from "@/lib/auth";
-import { RowDataPacket, ResultSetHeader } from "mysql2";
 
-interface EmployeeRow extends RowDataPacket {
+interface EmployeeRow {
   id: number;
   fullName: string;
   email: string;
@@ -24,7 +23,6 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 
   const { id } = await params;
 
-  // Employees may only fetch their own record
   if (payload.role !== "admin" && String(payload.id) !== id) {
     return NextResponse.json({ error: "Forbidden." }, { status: 403 });
   }
@@ -52,19 +50,20 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
   const { id } = await params;
   const numericId = parseInt(id, 10);
 
-  // Prevent admin from deleting themselves
   if (numericId === payload.id) {
     return NextResponse.json({ error: "Cannot delete your own account." }, { status: 400 });
   }
 
-  const [result] = await db.execute<ResultSetHeader>(
-    "DELETE FROM Employee WHERE id = ?",
+  // Check employee exists first
+  const [existing] = await db.execute<any[]>(
+    "SELECT id FROM Employee WHERE id = ?",
     [numericId]
   );
-
-  if (result.affectedRows === 0) {
+  if ((existing as any[]).length === 0) {
     return NextResponse.json({ error: "Employee not found." }, { status: 404 });
   }
+
+  await db.execute("DELETE FROM Employee WHERE id = ?", [numericId]);
 
   return NextResponse.json({ message: "Employee deleted." });
 }
@@ -78,7 +77,6 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 
   const { id } = await params;
 
-  // Employees may only update their own record
   if (payload.role !== "admin" && String(payload.id) !== id) {
     return NextResponse.json({ error: "Forbidden." }, { status: 403 });
   }
@@ -89,11 +87,9 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   const fields: string[] = [];
   const values: unknown[] = [];
 
-  // Fields any authenticated user can update on their own record
   if (body.fullName) { fields.push("fullName = ?"); values.push(body.fullName.trim()); }
   if (body.phone !== undefined) { fields.push("phone = ?"); values.push(body.phone?.trim() || null); }
 
-  // Admin-only fields
   if (payload.role === "admin") {
     if (body.email) { fields.push("email = ?"); values.push(body.email.trim().toLowerCase()); }
     if (body.department !== undefined) { fields.push("department = ?"); values.push(body.department?.trim() || null); }

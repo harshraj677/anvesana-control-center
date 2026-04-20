@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getTokenFromRequest, verifyToken } from "@/lib/auth";
-import { RowDataPacket, ResultSetHeader } from "mysql2";
 
 /** PUT /api/leave/:id — admin approves or rejects */
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -17,29 +16,26 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     return NextResponse.json({ error: "action must be 'approve' or 'reject'." }, { status: 400 });
   }
 
-  // Get the leave request
-  const [leaveRows] = await db.execute<RowDataPacket[]>(
+  const [leaveRows] = await db.execute<any[]>(
     "SELECT id, employeeId, days, status FROM LeaveRequest WHERE id = ?",
     [id]
   );
-  const leave = (leaveRows as RowDataPacket[])[0];
+  const leave = (leaveRows as any[])[0];
   if (!leave) return NextResponse.json({ error: "Leave request not found." }, { status: 404 });
   if (leave.status !== "pending") {
     return NextResponse.json({ error: `Cannot ${body.action} a request that is already ${leave.status}.` }, { status: 400 });
   }
 
   if (body.action === "approve") {
-    // Check balance again
-    const [empRows] = await db.execute<RowDataPacket[]>(
+    const [empRows] = await db.execute<any[]>(
       "SELECT leaveBalance FROM Employee WHERE id = ?",
       [leave.employeeId]
     );
-    const emp = (empRows as RowDataPacket[])[0];
+    const emp = (empRows as any[])[0];
     if (!emp || emp.leaveBalance < leave.days) {
       return NextResponse.json({ error: "Insufficient leave balance to approve." }, { status: 400 });
     }
 
-    // Approve and decrement balance
     await db.execute("UPDATE LeaveRequest SET status = 'approved' WHERE id = ?", [id]);
     await db.execute(
       "UPDATE Employee SET leaveBalance = leaveBalance - ? WHERE id = ?",

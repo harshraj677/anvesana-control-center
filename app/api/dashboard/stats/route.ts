@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getTokenFromRequest, verifyToken } from "@/lib/auth";
-import { RowDataPacket } from "mysql2";
 
 /** GET /api/dashboard/stats — dashboard stats (role-aware) */
 export async function GET(req: NextRequest) {
@@ -13,38 +12,33 @@ export async function GET(req: NextRequest) {
   const todayStr = new Date().toISOString().slice(0, 10);
 
   if (payload.role === "admin") {
-    // Total non-admin employees
-    const [empRows] = await db.execute<RowDataPacket[]>(
+    const [empRows] = await db.execute<any[]>(
       "SELECT COUNT(*) as total FROM Employee WHERE role != 'admin'"
     );
-    const totalEmployees = (empRows as RowDataPacket[])[0].total;
+    const totalEmployees = Number((empRows as any[])[0].total);
 
-    // Present today
-    const [presentRows] = await db.execute<RowDataPacket[]>(
+    const [presentRows] = await db.execute<any[]>(
       "SELECT COUNT(*) as total FROM Attendance WHERE date = ? AND checkIn IS NOT NULL",
       [todayStr]
     );
-    const presentToday = (presentRows as RowDataPacket[])[0].total;
+    const presentToday = Number((presentRows as any[])[0].total);
 
-    // Late today
-    const [lateRows] = await db.execute<RowDataPacket[]>(
+    const [lateRows] = await db.execute<any[]>(
       "SELECT COUNT(*) as total FROM Attendance WHERE date = ? AND status = 'late'",
       [todayStr]
     );
-    const lateToday = (lateRows as RowDataPacket[])[0].total;
+    const lateToday = Number((lateRows as any[])[0].total);
 
-    // On leave today
-    const [leaveRows] = await db.execute<RowDataPacket[]>(
+    const [leaveRows] = await db.execute<any[]>(
       "SELECT COUNT(*) as total FROM LeaveRequest WHERE status = 'approved' AND startDate <= ? AND endDate >= ?",
       [todayStr, todayStr]
     );
-    const onLeave = (leaveRows as RowDataPacket[])[0].total;
+    const onLeave = Number((leaveRows as any[])[0].total);
 
-    // Pending leave requests
-    const [pendingRows] = await db.execute<RowDataPacket[]>(
+    const [pendingRows] = await db.execute<any[]>(
       "SELECT COUNT(*) as total FROM LeaveRequest WHERE status = 'pending'"
     );
-    const pendingLeaveRequests = (pendingRows as RowDataPacket[])[0].total;
+    const pendingLeaveRequests = Number((pendingRows as any[])[0].total);
 
     const percentPresent = totalEmployees > 0 ? Math.round((presentToday / totalEmployees) * 100) : 0;
 
@@ -58,33 +52,33 @@ export async function GET(req: NextRequest) {
     });
   }
 
-  // Employee dashboard stats — personal data only
-  const [myAttendance] = await db.execute<RowDataPacket[]>(
-    "SELECT COUNT(*) as total FROM Attendance WHERE employeeId = ? AND MONTH(date) = MONTH(CURDATE()) AND YEAR(date) = YEAR(CURDATE())",
+  // Employee personal stats
+  const [myAttendance] = await db.execute<any[]>(
+    "SELECT COUNT(*) as total FROM Attendance WHERE employeeId = ? AND EXTRACT(MONTH FROM date)::int = EXTRACT(MONTH FROM CURRENT_DATE)::int AND EXTRACT(YEAR FROM date)::int = EXTRACT(YEAR FROM CURRENT_DATE)::int",
     [payload.id]
   );
-  const [myLateCount] = await db.execute<RowDataPacket[]>(
-    "SELECT COUNT(*) as total FROM Attendance WHERE employeeId = ? AND status = 'late' AND MONTH(date) = MONTH(CURDATE()) AND YEAR(date) = YEAR(CURDATE())",
+  const [myLateCount] = await db.execute<any[]>(
+    "SELECT COUNT(*) as total FROM Attendance WHERE employeeId = ? AND status = 'late' AND EXTRACT(MONTH FROM date)::int = EXTRACT(MONTH FROM CURRENT_DATE)::int AND EXTRACT(YEAR FROM date)::int = EXTRACT(YEAR FROM CURRENT_DATE)::int",
     [payload.id]
   );
-  const [myLeaves] = await db.execute<RowDataPacket[]>(
-    "SELECT COUNT(*) as total FROM LeaveRequest WHERE employeeId = ? AND status = 'approved' AND MONTH(startDate) = MONTH(CURDATE()) AND YEAR(startDate) = YEAR(CURDATE())",
+  const [myLeaves] = await db.execute<any[]>(
+    "SELECT COUNT(*) as total FROM LeaveRequest WHERE employeeId = ? AND status = 'approved' AND EXTRACT(MONTH FROM startDate)::int = EXTRACT(MONTH FROM CURRENT_DATE)::int AND EXTRACT(YEAR FROM startDate)::int = EXTRACT(YEAR FROM CURRENT_DATE)::int",
     [payload.id]
   );
-  const [myPending] = await db.execute<RowDataPacket[]>(
+  const [myPending] = await db.execute<any[]>(
     "SELECT COUNT(*) as total FROM LeaveRequest WHERE employeeId = ? AND status = 'pending'",
     [payload.id]
   );
-  const [empInfo] = await db.execute<RowDataPacket[]>(
+  const [empInfo] = await db.execute<any[]>(
     "SELECT leaveBalance FROM Employee WHERE id = ?",
     [payload.id]
   );
 
   return NextResponse.json({
-    monthlyAttendance: (myAttendance as RowDataPacket[])[0].total,
-    monthlyLate: (myLateCount as RowDataPacket[])[0].total,
-    monthlyLeaves: (myLeaves as RowDataPacket[])[0].total,
-    pendingRequests: (myPending as RowDataPacket[])[0].total,
-    leaveBalance: (empInfo as RowDataPacket[])[0]?.leaveBalance ?? 0,
+    monthlyAttendance: Number((myAttendance as any[])[0].total),
+    monthlyLate: Number((myLateCount as any[])[0].total),
+    monthlyLeaves: Number((myLeaves as any[])[0].total),
+    pendingRequests: Number((myPending as any[])[0].total),
+    leaveBalance: (empInfo as any[])[0]?.leaveBalance ?? 0,
   });
 }

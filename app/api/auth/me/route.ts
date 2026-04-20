@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getTokenFromRequest, verifyToken } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { RowDataPacket } from "mysql2";
-
 export async function GET(req: NextRequest) {
   const token = getTokenFromRequest(req);
 
@@ -17,12 +15,12 @@ export async function GET(req: NextRequest) {
   }
 
   // Fetch fresh data from DB to include leaveBalance, status, etc.
-  const [rows] = await db.execute<RowDataPacket[]>(
+  const [rows] = await db.execute<any[]>(
     "SELECT id, fullName, email, role, department, position, phone, leaveBalance, mustChangePassword, status, createdAt FROM Employee WHERE id = ?",
     [payload.id]
   );
 
-  const employee = (rows as RowDataPacket[])[0];
+  const employee = (rows as any[])[0];
   if (!employee) {
     return NextResponse.json({ error: "User not found." }, { status: 404 });
   }

@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getTokenFromRequest, verifyToken } from "@/lib/auth";
-import { RowDataPacket } from "mysql2";
-
 /** GET /api/attendance/map — admin: today's check-in locations for all employees */
 export async function GET(req: NextRequest) {
   const token = getTokenFromRequest(req);
@@ -13,7 +11,7 @@ export async function GET(req: NextRequest) {
 
   const todayStr = new Date().toISOString().slice(0, 10);
 
-  const [rows] = await db.execute<RowDataPacket[]>(
+  const [rows] = await db.execute<any[]>(
     `SELECT a.id, a.employeeId, e.fullName, a.latitude, a.longitude, a.checkIn, a.distanceFromOffice
      FROM Attendance a
      JOIN Employee e ON e.id = a.employeeId

@@ -4,9 +4,7 @@ import crypto from "crypto";
 import { db } from "@/lib/db";
 import { getTokenFromRequest, verifyToken } from "@/lib/auth";
 import { sendCredentialsEmail } from "@/lib/email";
-import { RowDataPacket, ResultSetHeader } from "mysql2";
-
-interface EmployeeRow extends RowDataPacket {
+interface EmployeeRow {
   id: number;
   fullName: string;
   email: string;
@@ -55,11 +53,11 @@ export async function POST(req: NextRequest) {
   }
 
   // Check duplicate email
-  const [existing] = await db.execute<RowDataPacket[]>(
+  const [existing] = await db.execute<any[]>(
     "SELECT id FROM Employee WHERE email = ?",
     [emailAddr]
   );
-  if ((existing as RowDataPacket[]).length > 0) {
+  if ((existing as any[]).length > 0) {
     return NextResponse.json({ error: "An employee with this email already exists." }, { status: 409 });
   }
 
@@ -67,9 +65,9 @@ export async function POST(req: NextRequest) {
   const randomPassword = crypto.randomBytes(4).toString("hex") + "A1!";
   const passwordHash = await bcrypt.hash(randomPassword, 12);
 
-  const [result] = await db.execute<ResultSetHeader>(
+  const [result] = await db.execute<any>(
     `INSERT INTO Employee (fullName, email, phone, department, position, role, passwordHash, leaveBalance, mustChangePassword, status)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`,
     [
       body.fullName.trim(),
       emailAddr,

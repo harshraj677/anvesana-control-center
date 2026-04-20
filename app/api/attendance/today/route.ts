@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getTokenFromRequest, verifyToken } from "@/lib/auth";
-import { RowDataPacket } from "mysql2";
-
 /** GET /api/attendance/today — returns current user's today attendance */
 export async function GET(req: NextRequest) {
   const token = getTokenFromRequest(req);
@@ -12,12 +10,12 @@ export async function GET(req: NextRequest) {
 
   const todayStr = new Date().toISOString().slice(0, 10);
 
-  const [rows] = await db.execute<RowDataPacket[]>(
+  const [rows] = await db.execute<any[]>(
     "SELECT id, checkIn, checkOut, hours, status, latitude, longitude, distanceFromOffice FROM Attendance WHERE employeeId = ? AND date = ?",
     [payload.id, todayStr]
   );
 
-  const record = (rows as RowDataPacket[])[0];
+  const record = (rows as any[])[0];
 
   if (!record) {
     return NextResponse.json({ checkIn: null, checkOut: null, hours: null, status: "not-checked-in", distanceFromOffice: null });
