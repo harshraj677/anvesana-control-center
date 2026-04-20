@@ -1,41 +1,67 @@
 import { NextResponse } from "next/server";
 import { Pool } from "pg";
 
-const pass = "nagup3blF3qxp0vr";
-const ref  = "dwzjmkphaluemoplsqyw";
-
-const POOLER_REGIONS = [
+const REGIONS = [
   "ap-south-1", "ap-southeast-1", "ap-southeast-2",
-  "ap-northeast-1", "ap-northeast-2", "ap-east-1",
-  "us-east-1", "us-west-1", "eu-west-1", "eu-central-1",
+  "ap-northeast-1", "us-east-1", "eu-west-1",
 ];
 
 export async function GET() {
+  const rawUrl = process.env.DATABASE_URL ?? "";
+  let pass = "";
+  let ref = "";
+
+  try {
+    const parsed = new URL(rawUrl);
+    pass = decodeURIComponent(parsed.password);
+    // Extract project ref from hostname: db.<ref>.supabase.co
+    const hostParts = parsed.hostname.split(".");
+    ref = hostParts[1] ?? "";
+  } catch {
+    return NextResponse.json({ error: "Cannot parse DATABASE_URL", rawUrl });
+  }
+
   // 1. Check if Supabase project is reachable via REST
   let restStatus = "unknown";
   try {
-    const r = await fetch(`https://${ref}.supabase.co/rest/v1/`, { signal: AbortSignal.timeout(5000) });
+    const r = await fetch(`https://${ref}.supabase.co/rest/v1/`, {
+      signal: AbortSignal.timeout(5000),
+    });
     restStatus = `HTTP ${r.status}`;
   } catch (e: any) {
     restStatus = `FAIL: ${e.message}`;
   }
 
-  // 2. Try each pooler region
-  const poolerResults: Record<string, string> = {};
-  for (const region of POOLER_REGIONS) {
-    const host = `aws-0-${region}.pooler.supabase.com`;
-    const url = `postgresql://postgres.${ref}:${pass}@${host}:6543/postgres`;
-    const pool = new Pool({ connectionString: url, max: 1, ssl: { rejectUnauthorized: false }, connectionTimeoutMillis: 4000 });
-    try {
-      await pool.query("SELECT 1");
-      poolerResults[region] = "✅ CONNECTED";
-      await pool.end();
-      break;
-    } catch (e: any) {
-      poolerResults[region] = e.message.slice(0, 60);
-      await pool.end().catch(() => {});
+  // 2. Try Transaction Pooler (port 6543) and Session Pooler (port 5432)
+  const results: Record<string, string> = {};
+
+  for (const region of REGIONS) {
+    for (const [label, port] of [["txn:6543", 6543], ["ses:5432", 5432]] as const) {
+      const host = `aws-0-${region}.pooler.supabase.com`;
+      const url = `postgresql://postgres.${ref}:${pass}@${host}:${port}/postgres`;
+      const pool = new Pool({
+        connectionString: url,
+        max: 1,
+        ssl: { rejectUnauthorized: false },
+        connectionTimeoutMillis: 5000,
+      });
+      const key = `${region} [${label}]`;
+      try {
+        await pool.query("SELECT 1");
+        results[key] = "CONNECTED";
+        await pool.end();
+        return NextResponse.json({
+          restStatus,
+          winner: { region, port, label },
+          poolerUrl: `postgresql://postgres.${ref}:***@${host}:${port}/postgres`,
+          results,
+        });
+      } catch (e: any) {
+        results[key] = e.message.slice(0, 80);
+        await pool.end().catch(() => {});
+      }
     }
   }
 
-  return NextResponse.json({ restStatus, poolerResults });
+  return NextResponse.json({ restStatus, ref: ref || "NOT FOUND", results });
 }

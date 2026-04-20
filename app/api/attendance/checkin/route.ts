@@ -2,8 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getTokenFromRequest, verifyToken } from "@/lib/auth";
 import { isWithinGeofence, getAttendanceStatus } from "@/lib/geofence";
-import { RowDataPacket, ResultSetHeader } from "mysql2";
-
 /** POST /api/attendance/checkin — employee checks in for today with geofencing */
 export async function POST(req: NextRequest) {
   const token = getTokenFromRequest(req);
@@ -51,14 +49,14 @@ export async function POST(req: NextRequest) {
   const todayStr = now.toISOString().slice(0, 10);
 
   // Check if already checked in today
-  const [existing] = await db.execute<RowDataPacket[]>(
+  const [existing] = await db.execute<any[]>(
     "SELECT id, checkIn FROM Attendance WHERE employeeId = ? AND date = ?",
     [payload.id, todayStr]
   );
 
-  if ((existing as RowDataPacket[]).length > 0) {
+  if ((existing as any[]).length > 0) {
     return NextResponse.json(
-      { error: "Already checked in today.", checkIn: (existing as RowDataPacket[])[0].checkIn },
+      { error: "Already checked in today.", checkIn: (existing as any[])[0].checkIn },
       { status: 400 }
     );
   }
@@ -67,7 +65,7 @@ export async function POST(req: NextRequest) {
   const device = req.headers.get("user-agent") || null;
   const status = getAttendanceStatus(now);
 
-  await db.execute<ResultSetHeader>(
+  await db.execute(
     `INSERT INTO Attendance (employeeId, date, checkIn, status, latitude, longitude, ipAddress, device, distanceFromOffice)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [payload.id, todayStr, now, status, latitude, longitude, ipAddress, device, geoCheck.distance]

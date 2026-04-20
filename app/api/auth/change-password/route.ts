@@ -2,8 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import bcrypt from "bcrypt";
 import { db } from "@/lib/db";
 import { getTokenFromRequest, verifyToken } from "@/lib/auth";
-import { RowDataPacket } from "mysql2";
-
 /** POST /api/auth/change-password — change own password */
 export async function POST(req: NextRequest) {
   const token = getTokenFromRequest(req);
@@ -20,11 +18,11 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "New password must be at least 6 characters." }, { status: 400 });
   }
 
-  const [rows] = await db.execute<RowDataPacket[]>(
+  const [rows] = await db.execute<any[]>(
     "SELECT passwordHash FROM Employee WHERE id = ?",
     [payload.id]
   );
-  const emp = (rows as RowDataPacket[])[0];
+  const emp = (rows as any[])[0];
   if (!emp) return NextResponse.json({ error: "User not found." }, { status: 404 });
 
   const match = await bcrypt.compare(body.currentPassword, emp.passwordHash);
@@ -34,7 +32,7 @@ export async function POST(req: NextRequest) {
 
   const newHash = await bcrypt.hash(body.newPassword, 12);
   await db.execute(
-    "UPDATE Employee SET passwordHash = ?, mustChangePassword = 0 WHERE id = ?",
+    "UPDATE Employee SET passwordHash = ?, mustChangePassword = false WHERE id = ?",
     [newHash, payload.id]
   );
 

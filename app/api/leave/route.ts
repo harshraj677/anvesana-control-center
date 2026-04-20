@@ -1,9 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getTokenFromRequest, verifyToken } from "@/lib/auth";
-import { RowDataPacket, ResultSetHeader } from "mysql2";
 
-interface LeaveRow extends RowDataPacket {
+interface LeaveRow {
   id: number;
   employeeId: number;
   startDate: string;
@@ -70,12 +69,11 @@ export async function POST(req: NextRequest) {
 
   const days = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
 
-  // Check leave balance
-  const [empRows] = await db.execute<RowDataPacket[]>(
+  const [empRows] = await db.execute<any[]>(
     "SELECT leaveBalance FROM Employee WHERE id = ?",
     [payload.id]
   );
-  const emp = (empRows as RowDataPacket[])[0];
+  const emp = (empRows as any[])[0];
   if (!emp) return NextResponse.json({ error: "Employee not found." }, { status: 404 });
 
   if (days > emp.leaveBalance) {
@@ -85,7 +83,7 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  await db.execute<ResultSetHeader>(
+  await db.execute(
     "INSERT INTO LeaveRequest (employeeId, startDate, endDate, days, reason, status) VALUES (?, ?, ?, ?, ?, 'pending')",
     [payload.id, body.startDate, body.endDate, days, body.reason.trim()]
   );

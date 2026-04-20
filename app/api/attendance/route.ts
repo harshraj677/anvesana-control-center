@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getTokenFromRequest, verifyToken } from "@/lib/auth";
-import { RowDataPacket } from "mysql2";
-
 /** GET /api/attendance — admin: all (or filter), employee: own */
 export async function GET(req: NextRequest) {
   const token = getTokenFromRequest(req);
@@ -52,6 +50,6 @@ export async function GET(req: NextRequest) {
     params = [payload.id];
   }
 
-  const [rows] = await db.execute<RowDataPacket[]>(query, params as any[]);
+  const [rows] = await db.execute<any[]>(query, params as any[]);
   return NextResponse.json({ attendance: rows });
 }

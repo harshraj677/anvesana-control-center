@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getTokenFromRequest, verifyToken } from "@/lib/auth";
-import { RowDataPacket } from "mysql2";
 
 /** GET /api/analytics — admin analytics data */
 export async function GET(req: NextRequest) {
@@ -12,67 +11,67 @@ export async function GET(req: NextRequest) {
   if (payload.role !== "admin") return NextResponse.json({ error: "Forbidden." }, { status: 403 });
 
   // Attendance trend: last 30 days daily stats
-  const [trendRows] = await db.execute<RowDataPacket[]>(`
+  const [trendRows] = await db.execute<any[]>(`
     SELECT
-      DATE_FORMAT(a.date, '%b %d') as date,
+      TO_CHAR(a.date, 'Mon DD') as date,
       SUM(CASE WHEN a.status = 'present' THEN 1 ELSE 0 END) as present,
       SUM(CASE WHEN a.status = 'late' THEN 1 ELSE 0 END) as late,
-      (SELECT COUNT(*) FROM Employee WHERE role != 'admin') -
-        COUNT(DISTINCT a.employeeId) as absent
-    FROM Attendance a
-    WHERE a.date >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
+      (SELECT COUNT(*) FROM "Employee" WHERE role != 'admin') -
+        COUNT(DISTINCT a."employeeId") as absent
+    FROM "Attendance" a
+    WHERE a.date >= CURRENT_DATE - INTERVAL '30 DAY'
     GROUP BY a.date
     ORDER BY a.date ASC
   `);
 
   // Department-wise attendance (current month)
-  const [deptRows] = await db.execute<RowDataPacket[]>(`
+  const [deptRows] = await db.execute<any[]>(`
     SELECT
       COALESCE(e.department, 'Unassigned') as department,
       SUM(CASE WHEN a.status = 'present' THEN 1 ELSE 0 END) as present,
       SUM(CASE WHEN a.status = 'late' THEN 1 ELSE 0 END) as late,
       SUM(CASE WHEN a.status = 'absent' OR a.status IS NULL THEN 1 ELSE 0 END) as absent
-    FROM Employee e
-    LEFT JOIN Attendance a ON a.employeeId = e.id
-      AND MONTH(a.date) = MONTH(CURDATE())
-      AND YEAR(a.date) = YEAR(CURDATE())
+    FROM "Employee" e
+    LEFT JOIN "Attendance" a ON a."employeeId" = e.id
+      AND EXTRACT(MONTH FROM a.date)::int = EXTRACT(MONTH FROM CURRENT_DATE)::int
+      AND EXTRACT(YEAR FROM a.date)::int = EXTRACT(YEAR FROM CURRENT_DATE)::int
     WHERE e.role != 'admin'
     GROUP BY e.department
   `);
 
   // Monthly leave requests breakdown
-  const [leaveMonthly] = await db.execute<RowDataPacket[]>(`
+  const [leaveMonthly] = await db.execute<any[]>(`
     SELECT
-      DATE_FORMAT(createdAt, '%b') as month,
+      TO_CHAR("createdAt", 'Mon') as month,
       SUM(CASE WHEN status = 'approved' THEN 1 ELSE 0 END) as approved,
       SUM(CASE WHEN status = 'rejected' THEN 1 ELSE 0 END) as rejected,
       SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) as pending
-    FROM LeaveRequest
-    WHERE createdAt >= DATE_SUB(CURDATE(), INTERVAL 6 MONTH)
-    GROUP BY YEAR(createdAt), MONTH(createdAt), DATE_FORMAT(createdAt, '%b')
-    ORDER BY YEAR(createdAt), MONTH(createdAt) ASC
+    FROM "LeaveRequest"
+    WHERE "createdAt" >= CURRENT_DATE - INTERVAL '6 MONTH'
+    GROUP BY EXTRACT(YEAR FROM "createdAt"), EXTRACT(MONTH FROM "createdAt"), TO_CHAR("createdAt", 'Mon')
+    ORDER BY EXTRACT(YEAR FROM "createdAt"), EXTRACT(MONTH FROM "createdAt") ASC
   `);
 
   // Employee attendance ranking (current month)
-  const [rankingRows] = await db.execute<RowDataPacket[]>(`
+  const [rankingRows] = await db.execute<any[]>(`
     SELECT
-      e.id, e.fullName, e.department,
-      COUNT(CASE WHEN a.status = 'present' THEN 1 END) as presentDays,
-      COUNT(CASE WHEN a.status = 'late' THEN 1 END) as lateDays,
-      COUNT(a.id) as totalDays
-    FROM Employee e
-    LEFT JOIN Attendance a ON a.employeeId = e.id
-      AND MONTH(a.date) = MONTH(CURDATE())
-      AND YEAR(a.date) = YEAR(CURDATE())
+      e.id, e."fullName", e.department,
+      COUNT(CASE WHEN a.status = 'present' THEN 1 END) as "presentDays",
+      COUNT(CASE WHEN a.status = 'late' THEN 1 END) as "lateDays",
+      COUNT(a.id) as "totalDays"
+    FROM "Employee" e
+    LEFT JOIN "Attendance" a ON a."employeeId" = e.id
+      AND EXTRACT(MONTH FROM a.date)::int = EXTRACT(MONTH FROM CURRENT_DATE)::int
+      AND EXTRACT(YEAR FROM a.date)::int = EXTRACT(YEAR FROM CURRENT_DATE)::int
     WHERE e.role != 'admin'
-    GROUP BY e.id, e.fullName, e.department
-    ORDER BY presentDays DESC
+    GROUP BY e.id, e."fullName", e.department
+    ORDER BY "presentDays" DESC
     LIMIT 10
   `);
 
   // Suspicious activity count
-  const [suspiciousRows] = await db.execute<RowDataPacket[]>(
-    "SELECT COUNT(*) as total FROM SuspiciousLog WHERE createdAt >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)"
+  const [suspiciousRows] = await db.execute<any[]>(
+    `SELECT COUNT(*) as total FROM "SuspiciousLog" WHERE "createdAt" >= CURRENT_DATE - INTERVAL '30 DAY'`
   );
 
   return NextResponse.json({
@@ -80,6 +79,6 @@ export async function GET(req: NextRequest) {
     departmentAttendance: deptRows,
     leaveMonthly,
     employeeRanking: rankingRows,
-    suspiciousCount: (suspiciousRows as RowDataPacket[])[0].total,
+    suspiciousCount: Number((suspiciousRows as any[])[0].total),
   });
 }
