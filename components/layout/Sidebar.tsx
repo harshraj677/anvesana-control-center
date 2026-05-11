@@ -17,6 +17,7 @@ import {
   Sparkles,
   MapPin,
   FileText,
+  Rocket,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -39,6 +40,12 @@ function getNavItems(role: string) {
           { label: "Attendance", href: "/dashboard/attendance", icon: CalendarCheck },
           { label: "Leave Requests", href: "/dashboard/leave", icon: ClipboardList },
           { label: "Attendance Map", href: "/dashboard/attendance-map", icon: MapPin },
+        ],
+      },
+      {
+        group: "Incubation",
+        items: [
+          { label: "Startups", href: "/dashboard/startups", icon: Rocket },
         ],
       },
       {

@@ -93,3 +93,25 @@ model Role {
   id   String @id @default(auto()) @map("_id") @db.ObjectId
   name String
 }
+
+model Startup {
+  id           String   @id @default(auto()) @map("_id") @db.ObjectId
+  startupName  String
+  founderName  String
+  founderEmail String?
+  founderPhone String?
+  program      String   @default("Diksuchi")
+  stage        String   @default("Idea")
+  mentor       String?
+  description  String?
+  fundingStage String   @default("Bootstrapped")
+  progress     Int      @default(0)
+  status       String   @default("Active")
+  website      String?
+  logo         String?
+  industry     String?
+  teamSize     Int?
+  location     String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
