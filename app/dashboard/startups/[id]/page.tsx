@@ -26,7 +26,7 @@ import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { useStartup, useDeleteStartup, StartupData } from "@/hooks/useStartups";
 import { useAuth } from "@/hooks/useAuth";
 import { cn, formatDate } from "@/lib/utils";
-import { StartupModal } from "./StartupModal";
+import { StartupModal } from "../StartupModal";
 
 // ── Color config (same as list page) ──────────────────────────
 const programColor: Record<string, string> = {
