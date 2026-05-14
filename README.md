@@ -1,4 +1,4 @@
-# Anvesana Employee Management System
+# Anvesync Employee Management System
 
 A full-stack employee management web application built with **Next.js 15**, **Prisma**, **MySQL**, and **Tailwind CSS**. It provides an admin dashboard to manage employees, attendance, leave requests, messaging, and analytics.
 

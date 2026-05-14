@@ -27,14 +27,14 @@ export async function POST(req: NextRequest) {
       data: {
         employeeId: payload.id,
         type: "geofence_violation",
-        description: `Attempted check-in from ${geoCheck.distance}m away from office (limit: 200m). Lat: ${latitude}, Lng: ${longitude}`,
+        description: `Attempted check-in from ${geoCheck.distance}m away from office (limit: 1000m). Lat: ${latitude}, Lng: ${longitude}`,
         ipAddress: getClientIP(req),
       },
     });
 
     return NextResponse.json(
       {
-        error: "You must be within the office premises to check in.",
+        error: "Check-in failed: You must be within 1000 meters of the office to check in.",
         distance: geoCheck.distance,
       },
       { status: 403 }

@@ -10,10 +10,10 @@ export const viewport: Viewport = {
 
 export const metadata: Metadata = {
   title: {
-    default: "Anvesana EMP | Employee Management Platform",
-    template: "%s | Anvesana EMP",
+    default: "Anvesync EMP | Employee Management Platform",
+    template: "%s | Anvesync EMP",
   },
-  description: "Internal Employee Management Platform for Anvesana Innovation & Entrepreneurial Forum",
+  description: "Internal Employee Management Platform for Anvesync Innovation & Entrepreneurial Forum",
   keywords: ["employee management", "HR", "attendance", "leave management"],
 };
 

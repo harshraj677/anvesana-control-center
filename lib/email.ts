@@ -31,13 +31,13 @@ export async function sendCredentialsEmail({
   const html = `
     <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
       <div style="background: linear-gradient(135deg, #6366f1, #8b5cf6); padding: 30px; border-radius: 16px 16px 0 0; text-align: center;">
-        <h1 style="color: white; margin: 0; font-size: 24px;">Anvesana</h1>
+        <h1 style="color: white; margin: 0; font-size: 24px;">Anvesync</h1>
         <p style="color: rgba(255,255,255,0.8); margin: 4px 0 0; font-size: 13px;">Innovation &amp; Entrepreneurial Forum</p>
       </div>
       <div style="background: #ffffff; padding: 30px; border: 1px solid #e2e8f0; border-top: none; border-radius: 0 0 16px 16px;">
-        <h2 style="color: #1e293b; margin: 0 0 16px;">Your Anvesana Employee Account</h2>
+        <h2 style="color: #1e293b; margin: 0 0 16px;">Your Anvesync Employee Account</h2>
         <p style="color: #475569; line-height: 1.6;">Hello <strong>${fullName}</strong>,</p>
-        <p style="color: #475569; line-height: 1.6;">Your employee account has been created on the Anvesana Workforce Management Platform. Here are your login credentials:</p>
+        <p style="color: #475569; line-height: 1.6;">Your employee account has been created on the Anvesync Workforce Management Platform. Here are your login credentials:</p>
         <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 20px; margin: 20px 0;">
           <p style="margin: 0 0 8px; color: #64748b; font-size: 13px;"><strong>Email:</strong></p>
           <p style="margin: 0 0 16px; color: #1e293b; font-size: 16px; font-family: monospace;">${email}</p>
@@ -49,16 +49,16 @@ export async function sendCredentialsEmail({
         </div>
         <a href="${appUrl}" style="display: inline-block; background: #6366f1; color: white; padding: 12px 28px; border-radius: 10px; text-decoration: none; font-weight: 600; margin-top: 16px;">Login Now</a>
         <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 24px 0;" />
-        <p style="color: #94a3b8; font-size: 12px; margin: 0;">This is an automated email from Anvesana Workforce Management Platform. If you did not expect this, please contact your administrator.</p>
+        <p style="color: #94a3b8; font-size: 12px; margin: 0;">This is an automated email from Anvesync Workforce Management Platform. If you did not expect this, please contact your administrator.</p>
       </div>
     </div>
   `;
 
   try {
     await transporter.sendMail({
-      from: `"Anvesana HR" <${process.env.SMTP_USER || "noreply@anvesana.org"}>`,
+      from: `"Anvesync HR" <${process.env.SMTP_USER || "noreply@anvesync.org"}>`,
       to: email,
-      subject: "Your Anvesana Employee Account",
+      subject: "Your Anvesync Employee Account",
       html,
     });
   } catch (error) {

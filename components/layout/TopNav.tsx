@@ -61,10 +61,10 @@ export function TopNav() {
     <header className="sticky top-0 z-20 h-16 bg-white/80 backdrop-blur-md border-b border-slate-200/60 flex items-center px-4 lg:px-6 gap-4">
       {/* Mobile: Brand logo */}
       <div className="flex items-center gap-2 lg:hidden no-select">
-        <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center shadow-md shadow-indigo-500/25">
-          <Sparkles className="w-4 h-4 text-white" />
+        <div className="w-8 h-8 rounded-xl bg-white flex items-center justify-center shadow-md border border-slate-100 overflow-hidden">
+          <img src="/logo.jpg" alt="Anvesync Logo" className="w-[120%] h-[120%] object-contain" onError={(e) => { e.currentTarget.style.display = 'none'; }} />
         </div>
-        <span className="font-bold text-slate-900 text-sm tracking-tight">Anvesana</span>
+        <span className="font-bold text-slate-900 text-sm tracking-wide">Anvesync</span>
       </div>
 
       {/* Desktop: Page title */}

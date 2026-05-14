@@ -112,13 +112,12 @@ export function Sidebar() {
         "flex items-center gap-3 px-4 py-5 border-b border-white/10",
         collapsed ? "justify-center px-2" : ""
       )}>
-        <div className="shrink-0 w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-400 to-violet-500 flex items-center justify-center shadow-lg shadow-indigo-500/30">
-          <Sparkles className="w-5 h-5 text-white" />
+        <div className="shrink-0 flex items-center justify-center w-10 h-10 rounded-xl overflow-hidden shadow-lg border border-white/10 bg-white">
+          <img src="/logo.jpg" alt="Anvesync Logo" className="w-[120%] h-[120%] object-contain" onError={(e) => { e.currentTarget.style.display = 'none'; }} />
         </div>
         {!collapsed && (
           <div className="overflow-hidden">
-            <p className="font-bold text-white text-sm leading-tight whitespace-nowrap">Anvesana</p>
-            <p className="text-[10px] text-slate-400 whitespace-nowrap">Innovation & Entrepreneurial</p>
+            <p className="font-bold text-white text-xl tracking-wide leading-tight whitespace-nowrap">Anvesync</p>
           </div>
         )}
       </div>

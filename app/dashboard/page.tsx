@@ -458,7 +458,7 @@ export default function DashboardPage() {
         >
           <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
           <p className="text-xs text-slate-400">
-            Powered by <span className="font-semibold text-indigo-500">Anvesana</span> — Innovation & Entrepreneurial Forum
+            Powered by <span className="font-semibold text-indigo-500">Anvesync</span> — Innovation & Entrepreneurial Forum
           </p>
         </motion.div>
       )}

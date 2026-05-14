@@ -1,14 +1,14 @@
 // Office location — Anvesana Innovation & Entrepreneurial Forum
 export const OFFICE_LOCATION = {
-  latitude: 15.3647,   // Update with actual office latitude
-  longitude: 75.1240,  // Update with actual office longitude
-  radiusMeters: 200,
+  latitude: 13.962271577211828,   // Update with actual office latitude
+  longitude: 75.50897323054004,  // Update with actual office longitude
+  radiusMeters: 1000,
 };
 
 // Office start time for late detection
 export const OFFICE_START_TIME = { hour: 9, minute: 30 };
 export const LATE_GRACE_TIME = { hour: 9, minute: 45 };
-export const ABSENT_CUTOFF_TIME = { hour: 10, minute: 0 };
+export const ABSENT_CUTOFF_TIME = { hour: 23, minute: 59 };
 
 /**
  * Calculate distance between two lat/lng points using the Haversine formula.

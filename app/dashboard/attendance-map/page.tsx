@@ -10,8 +10,8 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 
-const OFFICE_LAT = 15.3647;
-const OFFICE_LNG = 75.1240;
+const OFFICE_LAT = 13.962271577211828;
+const OFFICE_LNG = 75.50897323054004;
 const GOOGLE_MAPS_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "";
 
 export default function AttendanceMapPage() {
@@ -47,8 +47,10 @@ function AttendanceMapContent() {
 
   // Initialize map
   useEffect(() => {
+    if (typeof window === "undefined" || !window.google) return;
     if (!mapLoaded || !mapRef.current || mapInstance.current) return;
-    mapInstance.current = new google.maps.Map(mapRef.current, {
+    
+    mapInstance.current = new window.google.maps.Map(mapRef.current, {
       center: { lat: OFFICE_LAT, lng: OFFICE_LNG },
       zoom: 15,
       mapId: "anvesana-attendance-map",
@@ -58,10 +60,10 @@ function AttendanceMapContent() {
     });
 
     // Office marker
-    new google.maps.Circle({
+    new window.google.maps.Circle({
       map: mapInstance.current,
       center: { lat: OFFICE_LAT, lng: OFFICE_LNG },
-      radius: 200,
+      radius: 1000,
       strokeColor: "#6366f1",
       strokeOpacity: 0.8,
       strokeWeight: 2,
@@ -72,6 +74,7 @@ function AttendanceMapContent() {
 
   // Update employee markers
   useEffect(() => {
+    if (typeof window === "undefined" || !window.google) return;
     if (!mapInstance.current || !markers) return;
 
     // Clear existing markers
@@ -81,19 +84,19 @@ function AttendanceMapContent() {
     markers.forEach((m) => {
       const markerEl = document.createElement("div");
       markerEl.innerHTML = `
-        <div style="background: ${m.distanceFromOffice > 200 ? '#ef4444' : '#10b981'}; color: white; padding: 4px 8px; border-radius: 8px; font-size: 11px; font-weight: 600; white-space: nowrap; box-shadow: 0 2px 8px rgba(0,0,0,0.2);">
+        <div style="background: ${m.distanceFromOffice > 1000 ? '#ef4444' : '#10b981'}; color: white; padding: 4px 8px; border-radius: 8px; font-size: 11px; font-weight: 600; white-space: nowrap; box-shadow: 0 2px 8px rgba(0,0,0,0.2);">
           ${m.fullName}
         </div>
       `;
 
-      const advMarker = new google.maps.marker.AdvancedMarkerElement({
+      const advMarker = new window.google.maps.marker.AdvancedMarkerElement({
         map: mapInstance.current!,
         position: { lat: m.latitude, lng: m.longitude },
         content: markerEl,
         title: `${m.fullName} - ${m.distanceFromOffice}m from office`,
       });
 
-      const infoWindow = new google.maps.InfoWindow({
+      const infoWindow = new window.google.maps.InfoWindow({
         content: `
           <div style="padding: 8px; font-family: Inter, sans-serif;">
             <p style="font-weight: 600; margin: 0 0 4px;">${m.fullName}</p>
@@ -112,7 +115,7 @@ function AttendanceMapContent() {
   }, [markers, mapLoaded]);
 
   const totalCheckedIn = markers?.length ?? 0;
-  const outsideGeofence = markers?.filter((m) => m.distanceFromOffice > 200).length ?? 0;
+  const outsideGeofence = markers?.filter((m) => m.distanceFromOffice > 1000).length ?? 0;
 
   return (
     <div className="space-y-6">
@@ -189,7 +192,7 @@ function AttendanceMapContent() {
               <div key={m.id} className="flex items-center gap-3 p-3 rounded-xl hover:bg-slate-50 transition-colors">
                 <div className={cn(
                   "w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white",
-                  m.distanceFromOffice <= 200 ? "bg-emerald-500" : "bg-red-500"
+                  m.distanceFromOffice <= 500 ? "bg-emerald-500" : "bg-red-500"
                 )}>
                   {m.fullName.split(" ").map(n => n[0]).join("").slice(0, 2)}
                 </div>
@@ -200,7 +203,7 @@ function AttendanceMapContent() {
                     {new Date(m.checkIn).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                   </p>
                 </div>
-                <Badge variant={m.distanceFromOffice <= 200 ? "default" : "destructive"} className="text-xs">
+                <Badge variant={m.distanceFromOffice <= 500 ? "default" : "destructive"} className="text-xs">
                   {m.distanceFromOffice}m
                 </Badge>
               </div>
