@@ -13,6 +13,8 @@ import {
   Loader2,
   Phone,
   Briefcase,
+  Copy,
+  CheckCheck,
 } from "lucide-react";
 import Link from "next/link";
 import { useForm } from "react-hook-form";
@@ -71,6 +73,9 @@ export default function EmployeesPage() {
   const [search, setSearch] = useState("");
   const [department, setDepartment] = useState("all");
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [step, setStep] = useState<"form" | "credentials">("form");
+  const [credentials, setCredentials] = useState<{ email: string; password: string } | null>(null);
+  const [copiedField, setCopiedField] = useState<"email" | "password" | null>(null);
 
   const { data: user } = useAuth();
   const isAdmin = user?.role === "admin";
@@ -94,8 +99,26 @@ export default function EmployeesPage() {
   });
 
   const onSubmit = async (data: AddForm) => {
-    await createEmployee.mutateAsync(data);
+    const result = await createEmployee.mutateAsync(data);
     reset();
+    if (result?.generatedPassword) {
+      setCredentials({ email: data.email.trim().toLowerCase(), password: result.generatedPassword });
+      setStep("credentials");
+    } else {
+      setDialogOpen(false);
+    }
+  };
+
+  const handleCopy = (field: "email" | "password", value: string) => {
+    navigator.clipboard.writeText(value);
+    setCopiedField(field);
+    setTimeout(() => setCopiedField(null), 2000);
+  };
+
+  const handleDone = () => {
+    setStep("form");
+    setCredentials(null);
+    setCopiedField(null);
     setDialogOpen(false);
   };
 
@@ -113,7 +136,10 @@ export default function EmployeesPage() {
           </div>
 
           {isAdmin && (
-            <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+            <Dialog open={dialogOpen} onOpenChange={(open) => {
+              if (!open) { setStep("form"); setCredentials(null); setCopiedField(null); }
+              setDialogOpen(open);
+            }}>
               <DialogTrigger asChild>
                 <button
                   type="button"
@@ -126,9 +152,58 @@ export default function EmployeesPage() {
 
               <DialogContent className="sm:max-w-md rounded-2xl">
                 <DialogHeader>
-                  <DialogTitle className="text-lg font-bold text-slate-900">Add New Employee</DialogTitle>
-                  <p className="text-sm text-slate-400 mt-1">A temporary password will be emailed to them.</p>
+                  <DialogTitle className="text-lg font-bold text-slate-900">
+                    {step === "credentials" ? "Credentials Ready" : "Add New Employee"}
+                  </DialogTitle>
+                  {step === "form" && (
+                    <p className="text-sm text-slate-400 mt-1">A temporary password will be emailed to them.</p>
+                  )}
                 </DialogHeader>
+
+                {step === "credentials" && credentials ? (
+                  <div className="space-y-5 mt-2">
+                    <div className="flex flex-col items-center gap-2 py-1 text-center">
+                      <div className="w-12 h-12 rounded-2xl bg-emerald-100 flex items-center justify-center">
+                        <CheckCheck className="w-6 h-6 text-emerald-600" />
+                      </div>
+                      <p className="text-sm font-semibold text-slate-700">Employee account created.</p>
+                      <p className="text-xs text-slate-400">
+                        Copy and share these credentials — they will not be shown again.
+                      </p>
+                    </div>
+
+                    {(["email", "password"] as const).map((field) => (
+                      <div key={field} className="space-y-1.5">
+                        <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
+                          {field === "email" ? "Email" : "Temporary Password"}
+                        </span>
+                        <div className="flex items-center gap-2">
+                          <div className="flex-1 h-11 px-3 rounded-xl bg-slate-50 border border-slate-200 text-sm font-mono text-slate-800 flex items-center overflow-x-auto whitespace-nowrap">
+                            {credentials[field]}
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => handleCopy(field, credentials[field])}
+                            title={`Copy ${field}`}
+                            className="h-11 w-11 rounded-xl border border-slate-200 bg-white flex items-center justify-center text-slate-400 hover:text-indigo-600 hover:bg-slate-50 transition-all shrink-0"
+                          >
+                            {copiedField === field
+                              ? <CheckCheck className="w-4 h-4 text-emerald-500" />
+                              : <Copy className="w-4 h-4" />}
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+
+                    <button
+                      type="button"
+                      onClick={handleDone}
+                      className="w-full h-11 rounded-xl bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-700 active:scale-[0.98] transition-all"
+                    >
+                      Done — I&apos;ve saved the credentials
+                    </button>
+                  </div>
+                ) : (
 
                 <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 mt-2">
                   <div className="grid grid-cols-1 gap-4">
@@ -228,6 +303,7 @@ export default function EmployeesPage() {
                     </button>
                   </div>
                 </form>
+                )}
               </DialogContent>
             </Dialog>
           )}

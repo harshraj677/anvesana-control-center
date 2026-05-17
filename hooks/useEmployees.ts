@@ -76,9 +76,8 @@ export function useCreateEmployee() {
       if (!res.ok) throw new Error(json.error || "Failed to create employee");
       return json;
     },
-    onSuccess: (data) => {
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["employees"] });
-      toast.success(data.message || "Employee created successfully!");
     },
     onError: (err: Error) => {
       toast.error(err.message);
