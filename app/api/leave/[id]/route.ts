@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getTokenFromRequest, verifyToken } from "@/lib/auth";
+import { getAdminCaller, getClientIp, createArchive, createAuditLog } from "@/lib/secureDelete";
 
 export async function PUT(
   req: NextRequest,
@@ -61,4 +62,63 @@ export async function PUT(
     await prisma.leaveRequest.update({ where: { id }, data: { status: "rejected" } });
     return NextResponse.json({ message: "Leave rejected." });
   }
+}
+
+export async function DELETE(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const caller = await getAdminCaller(req);
+  if (!caller) return NextResponse.json({ error: "Forbidden." }, { status: 403 });
+
+  const { id } = await params;
+  const leave = await prisma.leaveRequest.findFirst({
+    where: { id, OR: [{ deletedAt: null }, { deletedAt: { isSet: false } }] },
+    include: { employee: { select: { fullName: true, email: true, department: true } } },
+  });
+  if (!leave) return NextResponse.json({ error: "Leave request not found." }, { status: 404 });
+
+  const body = await req.json().catch(() => ({}));
+  const { confirmName, archiveBeforeDelete = true, permanentPurge = false } = body;
+
+  // confirmName must match the employee's full name for this leave request
+  if (confirmName !== leave.employee.fullName) {
+    return NextResponse.json({ error: "Confirmation name does not match." }, { status: 400 });
+  }
+  if (permanentPurge && caller.dbRole !== "super_admin") {
+    return NextResponse.json({ error: "Permanent purge requires super_admin role." }, { status: 403 });
+  }
+
+  const ip = getClientIp(req);
+  const userAgent = req.headers.get("user-agent") ?? undefined;
+
+  let archiveId: string | undefined;
+  if (archiveBeforeDelete) {
+    const { employee, ...leaveData } = leave;
+    const arc = await createArchive({
+      sourceTable: "LeaveRequest",
+      sourceId: id,
+      snapshot: { ...leaveData, employeeName: employee.fullName } as Record<string, unknown>,
+      archivedBy: caller.id,
+    });
+    archiveId = arc.id;
+  }
+
+  if (permanentPurge) {
+    await prisma.leaveRequest.delete({ where: { id } });
+  } else {
+    await prisma.leaveRequest.update({ where: { id }, data: { deletedAt: new Date() } });
+  }
+
+  const audit = await createAuditLog({
+    adminId: caller.id,
+    action: permanentPurge ? "PERMANENT_DELETE" : "SOFT_DELETE",
+    resource: "LeaveRequest",
+    resourceId: id,
+    details: { archiveId, confirmName, permanentPurge },
+    ip,
+    userAgent,
+  });
+
+  return NextResponse.json({ success: true, auditId: audit.id, archiveId });
 }

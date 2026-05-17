@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getTokenFromRequest, verifyToken } from "@/lib/auth";
+import { getAdminCaller, getClientIp, createArchive, createAuditLog } from "@/lib/secureDelete";
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const token = getTokenFromRequest(req);
@@ -15,8 +16,8 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     return NextResponse.json({ error: "Forbidden." }, { status: 403 });
   }
 
-  const employee = await prisma.employee.findUnique({
-    where: { id },
+  const employee = await prisma.employee.findFirst({
+    where: { id, OR: [{ deletedAt: null }, { deletedAt: { isSet: false } }] },
     select: {
       id: true,
       fullName: true,
@@ -36,30 +37,65 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 }
 
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const token = getTokenFromRequest(req);
-  if (!token) return NextResponse.json({ error: "Not authenticated." }, { status: 401 });
-  const payload = verifyToken(token);
-  if (!payload) return NextResponse.json({ error: "Invalid session." }, { status: 401 });
+  const caller = await getAdminCaller(req);
+  if (!caller) return NextResponse.json({ error: "Forbidden." }, { status: 403 });
 
   const { id } = await params;
-  const caller = await prisma.employee.findUnique({ where: { id: payload.id }, select: { role: true } });
-  if (!caller || caller.role !== "admin") return NextResponse.json({ error: "Forbidden." }, { status: 403 });
-
-  if (id === payload.id) {
+  if (id === caller.id) {
     return NextResponse.json({ error: "Cannot delete your own account." }, { status: 400 });
   }
 
-  const existing = await prisma.employee.findUnique({ where: { id }, select: { id: true } });
-  if (!existing) return NextResponse.json({ error: "Employee not found." }, { status: 404 });
+  const employee = await prisma.employee.findFirst({
+    where: { id, OR: [{ deletedAt: null }, { deletedAt: { isSet: false } }] },
+    select: { id: true, fullName: true, email: true, phone: true, department: true, position: true, role: true, leaveBalance: true, createdAt: true },
+  });
+  if (!employee) return NextResponse.json({ error: "Employee not found." }, { status: 404 });
 
-  // MongoDB has no CASCADE — delete related records manually before deleting the employee.
-  await prisma.suspiciousLog.deleteMany({ where: { employeeId: id } });
-  await prisma.loginHistory.deleteMany({ where: { employeeId: id } });
-  await prisma.leaveRequest.deleteMany({ where: { employeeId: id } });
-  await prisma.attendance.deleteMany({ where: { employeeId: id } });
-  await prisma.employee.delete({ where: { id } });
+  const body = await req.json().catch(() => ({}));
+  const { confirmName, archiveBeforeDelete = true, permanentPurge = false } = body;
 
-  return NextResponse.json({ message: "Employee deleted." });
+  if (confirmName !== employee.fullName) {
+    return NextResponse.json({ error: "Confirmation name does not match." }, { status: 400 });
+  }
+  if (permanentPurge && caller.dbRole !== "super_admin") {
+    return NextResponse.json({ error: "Permanent purge requires super_admin role." }, { status: 403 });
+  }
+
+  const ip = getClientIp(req);
+  const userAgent = req.headers.get("user-agent") ?? undefined;
+
+  let archiveId: string | undefined;
+  if (archiveBeforeDelete) {
+    const arc = await createArchive({
+      sourceTable: "Employee",
+      sourceId: id,
+      snapshot: employee as Record<string, unknown>,
+      archivedBy: caller.id,
+    });
+    archiveId = arc.id;
+  }
+
+  if (permanentPurge) {
+    await prisma.suspiciousLog.deleteMany({ where: { employeeId: id } });
+    await prisma.loginHistory.deleteMany({ where: { employeeId: id } });
+    await prisma.leaveRequest.deleteMany({ where: { employeeId: id } });
+    await prisma.attendance.deleteMany({ where: { employeeId: id } });
+    await prisma.employee.delete({ where: { id } });
+  } else {
+    await prisma.employee.update({ where: { id }, data: { deletedAt: new Date(), status: "deleted" } });
+  }
+
+  const audit = await createAuditLog({
+    adminId: caller.id,
+    action: permanentPurge ? "PERMANENT_DELETE" : "SOFT_DELETE",
+    resource: "Employee",
+    resourceId: id,
+    details: { archiveId, confirmName, permanentPurge },
+    ip,
+    userAgent,
+  });
+
+  return NextResponse.json({ success: true, auditId: audit.id, archiveId });
 }
 
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {

@@ -9,6 +9,7 @@ export async function GET(req: NextRequest) {
   if (!payload) return NextResponse.json({ error: "Invalid session." }, { status: 401 });
 
   const startups = await prisma.startup.findMany({
+    where: { OR: [{ deletedAt: null }, { deletedAt: { isSet: false } }] },
     orderBy: { createdAt: "desc" },
   });
 

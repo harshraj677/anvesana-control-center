@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getTokenFromRequest, verifyToken } from "@/lib/auth";
+import { getAdminCaller, getClientIp, createArchive, createAuditLog } from "@/lib/secureDelete";
 
 async function requireAdmin(req: NextRequest) {
   const token = getTokenFromRequest(req);
@@ -80,13 +81,55 @@ export async function DELETE(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const auth = await requireAdmin(req);
-  if ("error" in auth) return NextResponse.json({ error: auth.error }, { status: auth.status });
+  const caller = await getAdminCaller(req);
+  if (!caller) return NextResponse.json({ error: "Forbidden." }, { status: 403 });
 
   const { id } = await params;
-  const existing = await prisma.startup.findUnique({ where: { id }, select: { id: true } });
-  if (!existing) return NextResponse.json({ error: "Startup not found." }, { status: 404 });
+  const startup = await prisma.startup.findFirst({
+    where: { id, OR: [{ deletedAt: null }, { deletedAt: { isSet: false } }] },
+    select: { id: true, startupName: true, founderName: true, founderEmail: true, program: true, stage: true, status: true, createdAt: true },
+  });
+  if (!startup) return NextResponse.json({ error: "Startup not found." }, { status: 404 });
 
-  await prisma.startup.delete({ where: { id } });
-  return NextResponse.json({ message: "Startup deleted." });
+  const body = await req.json().catch(() => ({}));
+  const { confirmName, archiveBeforeDelete = true, permanentPurge = false } = body;
+
+  if (confirmName !== startup.startupName) {
+    return NextResponse.json({ error: "Confirmation name does not match." }, { status: 400 });
+  }
+  if (permanentPurge && caller.dbRole !== "super_admin") {
+    return NextResponse.json({ error: "Permanent purge requires super_admin role." }, { status: 403 });
+  }
+
+  const ip = getClientIp(req);
+  const userAgent = req.headers.get("user-agent") ?? undefined;
+
+  let archiveId: string | undefined;
+  if (archiveBeforeDelete) {
+    const arc = await createArchive({
+      sourceTable: "Startup",
+      sourceId: id,
+      snapshot: startup as Record<string, unknown>,
+      archivedBy: caller.id,
+    });
+    archiveId = arc.id;
+  }
+
+  if (permanentPurge) {
+    await prisma.startup.delete({ where: { id } });
+  } else {
+    await prisma.startup.update({ where: { id }, data: { deletedAt: new Date() } });
+  }
+
+  const audit = await createAuditLog({
+    adminId: caller.id,
+    action: permanentPurge ? "PERMANENT_DELETE" : "SOFT_DELETE",
+    resource: "Startup",
+    resourceId: id,
+    details: { archiveId, confirmName, permanentPurge },
+    ip,
+    userAgent,
+  });
+
+  return NextResponse.json({ success: true, auditId: audit.id, archiveId });
 }

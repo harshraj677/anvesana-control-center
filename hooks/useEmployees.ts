@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
 export interface EmployeeData {
-  id: number;
+  id: string;
   fullName: string;
   email: string;
   phone: string | null;
@@ -85,11 +85,22 @@ export function useCreateEmployee() {
   });
 }
 
+export interface DeleteParams {
+  id: string;
+  confirmName: string;
+  archiveBeforeDelete: boolean;
+  permanentPurge: boolean;
+}
+
 export function useDeleteEmployee() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (id: number) => {
-      const res = await fetch(`/api/employees/${id}`, { method: "DELETE" });
+    mutationFn: async ({ id, confirmName, archiveBeforeDelete, permanentPurge }: DeleteParams) => {
+      const res = await fetch(`/api/employees/${id}`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ confirmName, archiveBeforeDelete, permanentPurge }),
+      });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || "Failed to delete employee");
       return json;

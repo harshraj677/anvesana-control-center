@@ -15,6 +15,7 @@ export async function GET(req: NextRequest) {
   if (!caller || caller.role !== "admin") return NextResponse.json({ error: "Forbidden." }, { status: 403 });
 
   const employees = await prisma.employee.findMany({
+    where: { OR: [{ deletedAt: null }, { deletedAt: { isSet: false } }] },
     select: {
       id: true,
       fullName: true,

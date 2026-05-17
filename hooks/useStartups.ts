@@ -137,11 +137,22 @@ export function useUpdateStartup() {
 }
 
 // ── Delete startup ────────────────────────────────────────────
+export interface StartupDeleteParams {
+  id: string;
+  confirmName: string;
+  archiveBeforeDelete: boolean;
+  permanentPurge: boolean;
+}
+
 export function useDeleteStartup() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (id: string) => {
-      const res = await fetch(`/api/startups/${id}`, { method: "DELETE" });
+    mutationFn: async ({ id, confirmName, archiveBeforeDelete, permanentPurge }: StartupDeleteParams) => {
+      const res = await fetch(`/api/startups/${id}`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ confirmName, archiveBeforeDelete, permanentPurge }),
+      });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || "Failed to delete startup");
       return json;

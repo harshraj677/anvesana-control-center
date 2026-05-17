@@ -52,9 +52,10 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { useEmployees, useCreateEmployee, useDeleteEmployee } from "@/hooks/useEmployees";
+import { useEmployees, useCreateEmployee, useDeleteEmployee, EmployeeData } from "@/hooks/useEmployees";
 import { useAuth } from "@/hooks/useAuth";
 import { cn, getInitials, getDepartmentColor } from "@/lib/utils";
+import { ConfirmDeleteModal } from "@/components/ConfirmDeleteModal";
 import { motion } from "framer-motion";
 
 const departments = ["All", "Management", "Programs", "Design", "Incubation", "Content", "Engineering", "Marketing", "Operations"];
@@ -76,6 +77,7 @@ export default function EmployeesPage() {
   const [step, setStep] = useState<"form" | "credentials">("form");
   const [credentials, setCredentials] = useState<{ email: string; password: string } | null>(null);
   const [copiedField, setCopiedField] = useState<"email" | "password" | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<EmployeeData | null>(null);
 
   const { data: user } = useAuth();
   const isAdmin = user?.role === "admin";
@@ -430,7 +432,7 @@ export default function EmployeesPage() {
                         {isAdmin && emp.id !== user?.id && (
                           <DropdownMenuItem
                             className="cursor-pointer text-red-600 focus:text-red-600 focus:bg-red-50"
-                            onClick={() => { if (confirm(`Delete ${emp.fullName}?`)) deleteEmployee.mutate(emp.id); }}
+                            onClick={() => setDeleteTarget(emp)}
                           >
                             <Trash2 className="w-4 h-4" /> Delete
                           </DropdownMenuItem>
@@ -533,7 +535,7 @@ export default function EmployeesPage() {
                             {isAdmin && emp.id !== user?.id && (
                               <DropdownMenuItem
                                 className="cursor-pointer text-red-600 focus:text-red-600 focus:bg-red-50"
-                                onClick={() => { if (confirm(`Delete ${emp.fullName}?`)) deleteEmployee.mutate(emp.id); }}
+                                onClick={() => setDeleteTarget(emp)}
                               >
                                 <Trash2 className="w-4 h-4" /> Delete
                               </DropdownMenuItem>
@@ -549,6 +551,28 @@ export default function EmployeesPage() {
           </>
         )}
       </div>
+
+      {deleteTarget && (
+        <ConfirmDeleteModal
+          open={!!deleteTarget}
+          onOpenChange={(v) => { if (!v) setDeleteTarget(null); }}
+          config={{
+            resourceType: "Employee",
+            displayName: deleteTarget.fullName,
+            resourceSummary: deleteTarget.email,
+            allowPermanentPurge: user?.role === "super_admin",
+          }}
+          isPending={deleteEmployee.isPending}
+          onConfirm={async (opts) => {
+            await deleteEmployee.mutateAsync({
+              id: deleteTarget.id,
+              confirmName: deleteTarget.fullName,
+              ...opts,
+            });
+            setDeleteTarget(null);
+          }}
+        />
+      )}
     </RoleGuard>
   );
 }

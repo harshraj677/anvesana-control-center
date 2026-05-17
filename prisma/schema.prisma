@@ -19,6 +19,7 @@ model Employee {
   leaveBalance       Int             @default(18)
   mustChangePassword Boolean         @default(false)
   status             String          @default("active")
+  deletedAt          DateTime?
   createdAt          DateTime        @default(now())
 
   attendance         Attendance[]
@@ -40,6 +41,7 @@ model Attendance {
   ipAddress          String?
   device             String?
   distanceFromOffice Float?
+  deletedAt          DateTime?
   createdAt          DateTime  @default(now())
 
   employee           Employee  @relation(fields: [employeeId], references: [id])
@@ -48,17 +50,18 @@ model Attendance {
 }
 
 model LeaveRequest {
-  id         String   @id @default(auto()) @map("_id") @db.ObjectId
-  employeeId String   @db.ObjectId
+  id         String    @id @default(auto()) @map("_id") @db.ObjectId
+  employeeId String    @db.ObjectId
   startDate  DateTime
   endDate    DateTime
-  days       Int      @default(1)
+  days       Int       @default(1)
   reason     String
-  status     String   @default("pending")
+  status     String    @default("pending")
   approvedBy String?
-  createdAt  DateTime @default(now())
+  deletedAt  DateTime?
+  createdAt  DateTime  @default(now())
 
-  employee   Employee @relation(fields: [employeeId], references: [id])
+  employee   Employee  @relation(fields: [employeeId], references: [id])
 }
 
 model LoginHistory {
@@ -95,23 +98,46 @@ model Role {
 }
 
 model Startup {
-  id           String   @id @default(auto()) @map("_id") @db.ObjectId
+  id           String    @id @default(auto()) @map("_id") @db.ObjectId
   startupName  String
   founderName  String
   founderEmail String?
   founderPhone String?
-  program      String   @default("Diksuchi")
-  stage        String   @default("Idea")
+  program      String    @default("Diksuchi")
+  stage        String    @default("Idea")
   mentor       String?
   description  String?
-  fundingStage String   @default("Bootstrapped")
-  progress     Int      @default(0)
-  status       String   @default("Active")
+  fundingStage String    @default("Bootstrapped")
+  progress     Int       @default(0)
+  status       String    @default("Active")
   website      String?
   logo         String?
   industry     String?
   teamSize     Int?
   location     String?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  deletedAt    DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+}
+
+model Archive {
+  id             String    @id @default(auto()) @map("_id") @db.ObjectId
+  sourceTable    String
+  sourceId       String
+  snapshot       Json
+  archivedBy     String    @db.ObjectId
+  archivedAt     DateTime  @default(now())
+  retentionUntil DateTime?
+}
+
+model AuditLog {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  adminId    String   @db.ObjectId
+  action     String
+  resource   String
+  resourceId String
+  details    Json?
+  ip         String?
+  userAgent  String?
+  createdAt  DateTime @default(now())
 }

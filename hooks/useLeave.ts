@@ -4,8 +4,8 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
 export interface LeaveData {
-  id: number;
-  employeeId: number;
+  id: string;
+  employeeId: string;
   startDate: string;
   endDate: string;
   days: number;
@@ -62,7 +62,7 @@ export function useApproveLeave() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (id: number) => {
+    mutationFn: async (id: string) => {
       const res = await fetch(`/api/leave/${id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
@@ -88,7 +88,7 @@ export function useRejectLeave() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (id: number) => {
+    mutationFn: async (id: string) => {
       const res = await fetch(`/api/leave/${id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
@@ -101,6 +101,36 @@ export function useRejectLeave() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["leave"] });
       toast.success("Leave request rejected.");
+    },
+    onError: (err: Error) => {
+      toast.error(err.message);
+    },
+  });
+}
+
+export interface LeaveDeleteParams {
+  id: string;
+  confirmName: string;
+  archiveBeforeDelete: boolean;
+  permanentPurge: boolean;
+}
+
+export function useDeleteLeaveRequest() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, confirmName, archiveBeforeDelete, permanentPurge }: LeaveDeleteParams) => {
+      const res = await fetch(`/api/leave/${id}`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ confirmName, archiveBeforeDelete, permanentPurge }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || "Failed to delete leave request");
+      return json;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["leave"] });
+      toast.success("Leave request deleted.");
     },
     onError: (err: Error) => {
       toast.error(err.message);

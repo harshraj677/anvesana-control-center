@@ -34,7 +34,9 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const employee = await prisma.employee.findUnique({ where: { email } });
+    const employee = await prisma.employee.findFirst({
+      where: { email, OR: [{ deletedAt: null }, { deletedAt: { isSet: false } }] },
+    });
 
     if (!employee) {
       await bcrypt.hash("dummy", 10);

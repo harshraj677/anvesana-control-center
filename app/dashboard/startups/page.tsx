@@ -16,7 +16,6 @@ import {
   Users,
   TrendingUp,
   CheckCircle,
-  AlertTriangle,
 } from "lucide-react";
 import Link from "next/link";
 import { Input } from "@/components/ui/input";
@@ -29,10 +28,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Dialog,
-  DialogContent,
-} from "@/components/ui/dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -52,6 +47,7 @@ import { StartupModal } from "./StartupModal";
 import { useAuth } from "@/hooks/useAuth";
 import { cn } from "@/lib/utils";
 import { RoleGuard } from "@/components/RoleGuard";
+import { ConfirmDeleteModal } from "@/components/ConfirmDeleteModal";
 
 // ── Constants ─────────────────────────────────────────────────
 const STAGES   = ["Idea", "Prototype", "MVP", "Funding", "Growth", "Scaling"];
@@ -102,49 +98,6 @@ function ProgressBar({ value, className }: { value: number; className?: string }
   );
 }
 
-// ── Delete confirmation modal ──────────────────────────────────
-function DeleteModal({ startup, onClose }: { startup: StartupData | null; onClose: () => void }) {
-  const del = useDeleteStartup();
-  if (!startup) return null;
-  return (
-    <Dialog open={!!startup} onOpenChange={(v) => { if (!v) onClose(); }}>
-      <DialogContent className="sm:max-w-sm rounded-2xl">
-        <div className="flex flex-col items-center text-center py-2">
-          <div className="w-16 h-16 rounded-full bg-red-50 flex items-center justify-center mb-4">
-            <AlertTriangle className="w-8 h-8 text-red-500" />
-          </div>
-          <h2 className="text-lg font-bold text-slate-900 mb-1">Delete Startup?</h2>
-          <p className="text-sm text-slate-500 mb-6">
-            <strong className="text-slate-700">{startup.startupName}</strong> will be permanently removed.
-            This cannot be undone.
-          </p>
-          <div className="flex gap-3 w-full">
-            <button
-              type="button"
-              className="flex-1 h-11 rounded-xl border border-slate-200 bg-white text-sm font-semibold text-slate-700 hover:bg-slate-50 active:scale-[0.98] transition-all"
-              onClick={onClose}
-            >
-              Cancel
-            </button>
-            <button
-              type="button"
-              disabled={del.isPending}
-              className="flex-1 h-11 rounded-xl bg-red-600 text-white text-sm font-semibold hover:bg-red-700 active:scale-[0.98] transition-all flex items-center justify-center gap-2 disabled:opacity-60"
-              onClick={async () => { await del.mutateAsync(startup.id); onClose(); }}
-            >
-              {del.isPending ? (
-                <><Loader2 className="w-4 h-4 animate-spin" /> Deleting…</>
-              ) : (
-                <><Trash2 className="w-4 h-4" /> Delete</>
-              )}
-            </button>
-          </div>
-        </div>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
 // ── Main page ──────────────────────────────────────────────────
 export default function StartupsPage() {
   const { data: user } = useAuth();
@@ -164,6 +117,7 @@ export default function StartupsPage() {
   });
   const { data: allStartups } = useStartups();
   const seedStartups = useSeedStartups();
+  const deleteStartup = useDeleteStartup();
 
   const stats = useMemo(() => {
     const all = allStartups ?? [];
@@ -529,7 +483,28 @@ export default function StartupsPage() {
       {/* ── Modals ─────────────────────────────────────────── */}
       {addOpen && <StartupModal onClose={() => setAddOpen(false)} />}
       {editTarget && <StartupModal startup={editTarget} onClose={() => setEditTarget(null)} />}
-      <DeleteModal startup={deleteTarget} onClose={() => setDeleteTarget(null)} />
+
+      {deleteTarget && (
+        <ConfirmDeleteModal
+          open={!!deleteTarget}
+          onOpenChange={(v) => { if (!v) setDeleteTarget(null); }}
+          config={{
+            resourceType: "Startup",
+            displayName: deleteTarget.startupName,
+            resourceSummary: `${deleteTarget.program} · ${deleteTarget.stage} · ${deleteTarget.founderName}`,
+            allowPermanentPurge: user?.role === "super_admin",
+          }}
+          isPending={deleteStartup.isPending}
+          onConfirm={async (opts) => {
+            await deleteStartup.mutateAsync({
+              id: deleteTarget.id,
+              confirmName: deleteTarget.startupName,
+              ...opts,
+            });
+            setDeleteTarget(null);
+          }}
+        />
+      )}
     </RoleGuard>
   );
 }
