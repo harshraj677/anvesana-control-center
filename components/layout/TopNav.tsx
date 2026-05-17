@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { usePathname } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import {
   Bell,
@@ -11,9 +12,9 @@ import {
   Settings,
   LogOut,
   HelpCircle,
-  Sparkles,
+  CheckCheck,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, timeAgo } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -26,8 +27,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
+import { useNotifications, useMarkRead, useMarkAllRead } from "@/hooks/useNotifications";
 
 const pageTitles: Record<string, { title: string; description: string }> = {
   "/dashboard": { title: "Dashboard", description: "Overview & insights" },
@@ -40,12 +41,28 @@ const pageTitles: Record<string, { title: string; description: string }> = {
   "/dashboard/settings": { title: "Settings", description: "Configure your preferences" },
 };
 
+const TYPE_DOT: Record<string, string> = {
+  leave:          "bg-indigo-500",
+  leave_approved: "bg-emerald-500",
+  leave_rejected: "bg-red-500",
+  welcome:        "bg-violet-500",
+  warning:        "bg-amber-500",
+  info:           "bg-slate-400",
+};
+
 export function TopNav() {
   const pathname = usePathname();
   const router = useRouter();
   const { data: user } = useAuth();
   const [searchFocused, setSearchFocused] = useState(false);
   const initials = user?.fullName?.split(" ").map((n: string) => n[0]).join("").toUpperCase() ?? "?";
+
+  const { data: notifications = [] } = useNotifications();
+  const markRead    = useMarkRead();
+  const markAllRead = useMarkAllRead();
+
+  const unreadCount  = notifications.filter((n) => !n.isRead).length;
+  const badgeCount   = unreadCount > 9 ? "9+" : unreadCount > 0 ? String(unreadCount) : null;
 
   const currentPage = Object.keys(pageTitles)
     .reverse()
@@ -96,32 +113,75 @@ export function TopNav() {
         <DropdownMenuTrigger asChild>
           <Button variant="ghost" size="icon-sm" className="relative shrink-0 min-w-[44px] min-h-[44px]">
             <Bell className="w-5 h-5 text-slate-600" />
-            <span className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full bg-indigo-600 text-white text-[9px] flex items-center justify-center font-bold">
-              3
-            </span>
+            {badgeCount && (
+              <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[9px] flex items-center justify-center font-bold leading-none">
+                {badgeCount}
+              </span>
+            )}
           </Button>
         </DropdownMenuTrigger>
+
         <DropdownMenuContent className="w-80" align="end">
-          <DropdownMenuLabel className="font-semibold text-sm">Notifications</DropdownMenuLabel>
-          <DropdownMenuSeparator />
-          {[
-            { title: "Leave request approved", desc: "Your leave for March 10-11 is approved", time: "2m ago", color: "bg-emerald-500" },
-            { title: "New message from HR", desc: "Leave policy update for FY 2026-27", time: "1h ago", color: "bg-indigo-500" },
-            { title: "Attendance reminder", desc: "Please mark your attendance for today", time: "3h ago", color: "bg-amber-500" },
-          ].map((notif, i) => (
-            <DropdownMenuItem key={i} className="flex items-start gap-3 py-3 cursor-pointer">
-              <div className={cn("w-2 h-2 rounded-full mt-1.5 shrink-0", notif.color)} />
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-slate-900">{notif.title}</p>
-                <p className="text-xs text-slate-500 mt-0.5 truncate">{notif.desc}</p>
-                <p className="text-xs text-slate-400 mt-1">{notif.time}</p>
+          {/* Header */}
+          <div className="flex items-center justify-between px-3 py-2">
+            <span className="text-sm font-semibold text-slate-800">Notifications</span>
+            {unreadCount > 0 && (
+              <button
+                type="button"
+                onClick={() => markAllRead.mutate()}
+                disabled={markAllRead.isPending}
+                className="flex items-center gap-1 text-[11px] text-indigo-600 hover:text-indigo-800 font-medium disabled:opacity-50"
+              >
+                <CheckCheck className="w-3 h-3" />
+                Mark all read
+              </button>
+            )}
+          </div>
+          <DropdownMenuSeparator className="my-0" />
+
+          {/* List */}
+          <div className="max-h-[340px] overflow-y-auto">
+            {notifications.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-10 px-4 text-center">
+                <Bell className="w-8 h-8 text-slate-200 mb-2" />
+                <p className="text-sm text-slate-500 font-medium">No notifications yet</p>
+                <p className="text-xs text-slate-400 mt-0.5">We&apos;ll notify you when something happens.</p>
               </div>
-            </DropdownMenuItem>
-          ))}
-          <DropdownMenuSeparator />
-          <DropdownMenuItem className="text-center text-xs text-indigo-600 font-medium justify-center">
-            View all notifications
-          </DropdownMenuItem>
+            ) : (
+              notifications.map((n) => (
+                <DropdownMenuItem
+                  key={n.id}
+                  onSelect={(e) => {
+                    e.preventDefault();
+                    if (!n.isRead) markRead.mutate(n.id);
+                    if (n.link) router.push(n.link);
+                  }}
+                  className={cn(
+                    "flex items-start gap-3 px-3 py-3 cursor-pointer rounded-none focus:rounded-none",
+                    !n.isRead && "bg-indigo-50/60 hover:bg-indigo-50"
+                  )}
+                >
+                  <span
+                    className={cn(
+                      "w-2 h-2 rounded-full mt-1.5 shrink-0",
+                      TYPE_DOT[n.type] ?? TYPE_DOT.info,
+                      n.isRead && "opacity-40"
+                    )}
+                  />
+                  <div className="flex-1 min-w-0">
+                    <p className={cn("text-sm text-slate-900 leading-snug", !n.isRead && "font-semibold")}>
+                      {n.title}
+                    </p>
+                    <p className="text-xs text-slate-500 mt-0.5 leading-snug line-clamp-2">{n.message}</p>
+                    <p className="text-[11px] text-slate-400 mt-1">{timeAgo(n.createdAt)}</p>
+                  </div>
+                  {!n.isRead && (
+                    <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 mt-2 shrink-0" />
+                  )}
+                </DropdownMenuItem>
+              ))
+            )}
+          </div>
         </DropdownMenuContent>
       </DropdownMenu>
 

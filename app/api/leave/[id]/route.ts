@@ -56,10 +56,28 @@ export async function PUT(
       where: { id: leave.employeeId },
       data: { leaveBalance: { decrement: leave.days } },
     });
+    await prisma.notification.create({
+      data: {
+        recipientId: leave.employeeId,
+        title: "Leave Approved",
+        message: `Your ${leave.days}-day leave request has been approved.`,
+        type: "leave_approved",
+        link: "/dashboard/leave",
+      },
+    });
 
     return NextResponse.json({ message: "Leave approved.", daysDeducted: leave.days });
   } else {
     await prisma.leaveRequest.update({ where: { id }, data: { status: "rejected" } });
+    await prisma.notification.create({
+      data: {
+        recipientId: leave.employeeId,
+        title: "Leave Rejected",
+        message: `Your ${leave.days}-day leave request has been rejected.`,
+        type: "leave_rejected",
+        link: "/dashboard/leave",
+      },
+    });
     return NextResponse.json({ message: "Leave rejected." });
   }
 }

@@ -72,6 +72,11 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  const requester = await prisma.employee.findUnique({
+    where: { id: payload.id },
+    select: { fullName: true },
+  });
+
   await prisma.leaveRequest.create({
     data: {
       employeeId: payload.id,
@@ -82,6 +87,23 @@ export async function POST(req: NextRequest) {
       status: "pending",
     },
   });
+
+  // Fan-out: create one notification per admin
+  const admins = await prisma.employee.findMany({
+    where: { role: "admin", OR: [{ deletedAt: null }, { deletedAt: { isSet: false } }] },
+    select: { id: true },
+  });
+  if (admins.length > 0) {
+    await prisma.notification.createMany({
+      data: admins.map((a) => ({
+        recipientId: a.id,
+        title: "New Leave Request",
+        message: `${requester?.fullName ?? "An employee"} requested ${days} day(s) of leave.`,
+        type: "leave",
+        link: "/dashboard/leave",
+      })),
+    });
+  }
 
   return NextResponse.json({ message: "Leave request submitted.", days }, { status: 201 });
 }

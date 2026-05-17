@@ -89,6 +89,17 @@ export async function POST(req: NextRequest) {
     password: randomPassword,
   }).catch(() => {});
 
+  // Welcome notification for the new employee
+  await prisma.notification.create({
+    data: {
+      recipientId: employee.id,
+      title: "Welcome to Anvesync!",
+      message: "Your account is ready. Check your email for login credentials.",
+      type: "welcome",
+      link: "/dashboard",
+    },
+  });
+
   return NextResponse.json(
     {
       id: employee.id,
