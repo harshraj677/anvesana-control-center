@@ -1,7 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getTokenFromRequest, verifyToken } from "@/lib/auth";
-import { isWithinGeofence, getAttendanceStatus } from "@/lib/geofence";
+import { isWithinGeofence, getAttendanceStatus, OFFICE_LOCATION } from "@/lib/geofence";
+
+const DEFAULT_OFFICE = {
+  wifiName: "",
+  latitude: OFFICE_LOCATION.latitude,
+  longitude: OFFICE_LOCATION.longitude,
+  radiusMeters: OFFICE_LOCATION.radiusMeters,
+};
 
 export async function POST(req: NextRequest) {
   const token = getTokenFromRequest(req);
@@ -21,20 +28,64 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const geoCheck = isWithinGeofence(latitude, longitude);
+  // CHECK 1 — Mock location detection
+  if (body?.mocked === true) {
+    await prisma.suspiciousLog.create({
+      data: {
+        employeeId: payload.id,
+        type: "mock_location_detected",
+        description: `Check-in blocked: Fake GPS app detected. Lat: ${latitude}, Lng: ${longitude}`,
+        ipAddress: getClientIP(req),
+      },
+    });
+    return NextResponse.json(
+      { error: "Check-in blocked: Fake GPS detected on your device." },
+      { status: 403 }
+    );
+  }
+
+  // Fetch office settings from DB (fallback to defaults if not configured)
+  const settingsRecord = await prisma.settings.findUnique({ where: { key: "office" } });
+  const officeSettings = (settingsRecord?.value as typeof DEFAULT_OFFICE) ?? DEFAULT_OFFICE;
+
+  // CHECK 2 — WiFi SSID verification (only if admin has configured a WiFi name)
+  const wifiSsid: string | undefined = body?.wifiSsid;
+  if (officeSettings.wifiName && wifiSsid !== officeSettings.wifiName) {
+    await prisma.suspiciousLog.create({
+      data: {
+        employeeId: payload.id,
+        type: "wifi_mismatch",
+        description: `Check-in blocked: Connected to "${wifiSsid ?? "unknown"}", required "${officeSettings.wifiName}".`,
+        ipAddress: getClientIP(req),
+      },
+    });
+    return NextResponse.json(
+      { error: "Check-in blocked: You must be connected to the office WiFi." },
+      { status: 403 }
+    );
+  }
+
+  // CHECK 3 — GPS distance / geofence (using DB office location)
+  const geoCheck = isWithinGeofence(
+    latitude,
+    longitude,
+    officeSettings.latitude,
+    officeSettings.longitude,
+    officeSettings.radiusMeters
+  );
+
   if (!geoCheck.allowed) {
     await prisma.suspiciousLog.create({
       data: {
         employeeId: payload.id,
         type: "geofence_violation",
-        description: `Attempted check-in from ${geoCheck.distance}m away from office (limit: 1000m). Lat: ${latitude}, Lng: ${longitude}`,
+        description: `Attempted check-in from ${geoCheck.distance}m away from office (limit: ${officeSettings.radiusMeters}m). Lat: ${latitude}, Lng: ${longitude}`,
         ipAddress: getClientIP(req),
       },
     });
-
     return NextResponse.json(
       {
-        error: "Check-in failed: You must be within 1000 meters of the office to check in.",
+        error: `Check-in failed: You must be within ${officeSettings.radiusMeters} meters of the office to check in.`,
         distance: geoCheck.distance,
       },
       { status: 403 }

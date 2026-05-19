@@ -152,3 +152,10 @@ model Notification {
   link          String?
   createdAt     DateTime @default(now())
 }
+
+model Settings {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  key       String   @unique
+  value     Json
+  updatedAt DateTime @updatedAt
+}

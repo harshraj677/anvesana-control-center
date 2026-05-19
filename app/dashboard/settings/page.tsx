@@ -13,6 +13,7 @@ import {
   Eye,
   EyeOff,
   Check,
+  Wifi,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -93,6 +94,24 @@ export default function SettingsPage() {
 
   const [profileSaving, setProfileSaving] = useState(false);
 
+  const [officeSettings, setOfficeSettings] = useState({
+    wifiName: "",
+    latitude: 13.962271577211828,
+    longitude: 75.50897323054004,
+    radiusMeters: 1000,
+  });
+  const [officeSaving, setOfficeSaving] = useState(false);
+
+  useEffect(() => {
+    if (authUser?.role !== "admin") return;
+    fetch("/api/settings")
+      .then(r => r.json())
+      .then(data => {
+        if (data) setOfficeSettings(data);
+      })
+      .catch(() => {});
+  }, [authUser?.role]);
+
   const onSaveProfile = async (data: ProfileData) => {
     if (!authUser) return;
     setProfileSaving(true);
@@ -138,6 +157,27 @@ export default function SettingsPage() {
     toast.success("Notification preferences saved");
   };
 
+  const saveOfficeSettings = async () => {
+    setOfficeSaving(true);
+    try {
+      const res = await fetch("/api/settings", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(officeSettings),
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        toast.error(json.error || "Failed to save office settings");
+      } else {
+        toast.success("Office settings saved");
+      }
+    } catch {
+      toast.error("Network error, please try again");
+    } finally {
+      setOfficeSaving(false);
+    }
+  };
+
   return (
     <div className="space-y-6 max-w-3xl">
       {/* Header */}
@@ -153,6 +193,9 @@ export default function SettingsPage() {
             <TabsTrigger value="notifications" className="gap-1.5"><Bell className="w-3.5 h-3.5" />Notifications</TabsTrigger>
             <TabsTrigger value="security" className="gap-1.5"><Lock className="w-3.5 h-3.5" />Security</TabsTrigger>
             <TabsTrigger value="appearance" className="gap-1.5"><Palette className="w-3.5 h-3.5" />Appearance</TabsTrigger>
+            {authUser?.role === "admin" && (
+              <TabsTrigger value="office" className="gap-1.5"><Wifi className="w-3.5 h-3.5" />Office Settings</TabsTrigger>
+            )}
           </TabsList>
 
           {/* Profile Tab */}
@@ -257,7 +300,7 @@ export default function SettingsPage() {
                 ))}
               </div>
               <div className="pt-2">
-                <Button onClick={saveNotifications} className="bg-indigo-600 hover:bg-indigo-700 rounded-xl">
+                <Button type="button" onClick={saveNotifications} className="bg-indigo-600 hover:bg-indigo-700 rounded-xl">
                   Save Preferences
                 </Button>
               </div>
@@ -332,6 +375,75 @@ export default function SettingsPage() {
               </div>
             </div>
           </TabsContent>
+
+          {/* Office Settings Tab — admin only */}
+          {authUser?.role === "admin" && (
+            <TabsContent value="office">
+              <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 space-y-6">
+                <div>
+                  <h3 className="text-sm font-semibold text-slate-800">Office Settings</h3>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Configure the office WiFi name and GPS geofence. Employees must be on
+                    this WiFi and within the radius to check in.
+                  </p>
+                </div>
+                <Separator />
+                <div className="space-y-4 max-w-sm">
+                  <div className="space-y-1.5">
+                    <Label>Office WiFi Name</Label>
+                    <Input
+                      placeholder="e.g. Anvesana_Office"
+                      value={officeSettings.wifiName}
+                      onChange={e => setOfficeSettings(prev => ({ ...prev, wifiName: e.target.value }))}
+                    />
+                    <p className="text-xs text-slate-400">
+                      Leave empty to skip WiFi check during check-in.
+                    </p>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Office Latitude</Label>
+                    <Input
+                      type="number"
+                      step="any"
+                      value={officeSettings.latitude}
+                      onChange={e => setOfficeSettings(prev => ({ ...prev, latitude: parseFloat(e.target.value) || prev.latitude }))}
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Office Longitude</Label>
+                    <Input
+                      type="number"
+                      step="any"
+                      value={officeSettings.longitude}
+                      onChange={e => setOfficeSettings(prev => ({ ...prev, longitude: parseFloat(e.target.value) || prev.longitude }))}
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Geofence Radius (meters)</Label>
+                    <Input
+                      type="number"
+                      min={50}
+                      value={officeSettings.radiusMeters}
+                      onChange={e => setOfficeSettings(prev => ({ ...prev, radiusMeters: parseInt(e.target.value) || prev.radiusMeters }))}
+                    />
+                    <p className="text-xs text-slate-400">
+                      Employees must be within this distance from office to check in.
+                    </p>
+                  </div>
+                  <div className="pt-2">
+                    <Button
+                      type="button"
+                      onClick={saveOfficeSettings}
+                      className="bg-indigo-600 hover:bg-indigo-700 rounded-xl"
+                      disabled={officeSaving}
+                    >
+                      {officeSaving ? <><Loader2 className="w-4 h-4 animate-spin mr-1" />Saving...</> : "Save Office Settings"}
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </TabsContent>
+          )}
 
           {/* Appearance Tab */}
           <TabsContent value="appearance">

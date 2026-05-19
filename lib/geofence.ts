@@ -1,7 +1,7 @@
-// Office location — Anvesana Innovation & Entrepreneurial Forum
+// Office location — fallback defaults if no DB settings saved
 export const OFFICE_LOCATION = {
-  latitude: 13.962271577211828,   // Update with actual office latitude
-  longitude: 75.50897323054004,  // Update with actual office longitude
+  latitude: 13.962271577211828,
+  longitude: 75.50897323054004,
   radiusMeters: 1000,
 };
 
@@ -36,19 +36,18 @@ export function haversineDistance(
 
 /**
  * Check if a given point is within the office geofence.
+ * Accepts dynamic office coords — falls back to hardcoded defaults if not provided.
  */
-export function isWithinGeofence(latitude: number, longitude: number): {
-  allowed: boolean;
-  distance: number;
-} {
-  const distance = haversineDistance(
-    latitude,
-    longitude,
-    OFFICE_LOCATION.latitude,
-    OFFICE_LOCATION.longitude
-  );
+export function isWithinGeofence(
+  latitude: number,
+  longitude: number,
+  officeLat: number = OFFICE_LOCATION.latitude,
+  officeLng: number = OFFICE_LOCATION.longitude,
+  radiusMeters: number = OFFICE_LOCATION.radiusMeters
+): { allowed: boolean; distance: number } {
+  const distance = haversineDistance(latitude, longitude, officeLat, officeLng);
   return {
-    allowed: distance <= OFFICE_LOCATION.radiusMeters,
+    allowed: distance <= radiusMeters,
     distance: Math.round(distance),
   };
 }
